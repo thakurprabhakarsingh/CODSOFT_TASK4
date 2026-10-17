@@ -18,40 +18,69 @@ document.addEventListener('DOMContentLoaded', () => {
   const volumeBar = document.getElementById('volume-bar');
   const muteBtn = document.getElementById('mute-btn');
   const fileUpload = document.getElementById('file-upload');
-  const onlineUrlInput = document.getElementById('online-url-input');
-  const addUrlBtn = document.getElementById('add-url-btn');
+  const searchInput = document.getElementById('search-input');
+  const searchBtn = document.getElementById('search-btn');
   const playlistEl = document.getElementById('playlist');
   const playlistCountEl = document.getElementById('playlist-count');
+  const listHeading = document.getElementById('list-heading');
 
-  const defaultArtwork = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=80";
+  const fallbackArt = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=80";
 
-  // Pre-configured online tracks (Direct high-quality CDN audio streams)
-  let tracks = [
-    {
-      title: "Lofi Dream Session",
-      artist: "Online Stream",
-      art: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=500&auto=format&fit=crop&q=80",
-      src: "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Keshco/Suspended_Animation/Keshco_-_01_-_Flute_Song.mp3",
-      source: "Online"
-    },
-    {
-      title: "Morning Sun Acoustic",
-      artist: "Online Stream",
-      art: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&auto=format&fit=crop&q=80",
-      src: "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/ccCommunity/Kai_Engel/Sollers_Philosophia/Kai_Engel_-_01_-_Damaged_Lough.mp3",
-      source: "Online"
-    },
-    {
-      title: "Electronic Synthwave",
-      artist: "Online Stream",
-      art: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=500&auto=format&fit=crop&q=80",
-      src: "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/ccCommunity/Chad_Crouch/Arps/Chad_Crouch_-_Algorithms.mp3",
-      source: "Online"
-    }
-  ];
-
+  let tracks = [];
   let currentTrackIndex = 0;
   let isPlaying = false;
+
+  // HTML entity decode helper (e.g. &quot; to ")
+  function decodeHTML(str) {
+    const txt = document.createElement("textarea");
+    txt.innerHTML = str;
+    return txt.value;
+  }
+
+  // Fetch Bollywood songs from free public API
+  async function searchBollywoodSongs(query) {
+    listHeading.textContent = `Searching: ${query}...`;
+    try {
+      const res = await fetch(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(query)}&limit=15`);
+      const data = await res.json();
+
+      if (data && data.data && data.data.results && data.data.results.length > 0) {
+        tracks = data.data.results.map(item => {
+          // Best quality download/streaming link
+          const downloadUrl = (item.downloadUrl && item.downloadUrl.length > 0)
+            ? item.downloadUrl[item.downloadUrl.length - 1].url 
+            : '';
+
+          // Best artwork
+          const art = (item.image && item.image.length > 0)
+            ? item.image[item.image.length - 1].url 
+            : fallbackArt;
+
+          const artistName = item.artists && item.artists.primary && item.artists.primary.length > 0
+            ? item.artists.primary.map(a => a.name).join(', ')
+            : 'Bollywood Artist';
+
+          return {
+            title: decodeHTML(item.name || "Unknown Track"),
+            artist: decodeHTML(artistName),
+            art: art,
+            src: downloadUrl
+          };
+        }).filter(t => t.src !== '');
+
+        listHeading.textContent = `Results: ${query}`;
+        renderPlaylist();
+        if (tracks.length > 0) {
+          loadTrack(0);
+        }
+      } else {
+        listHeading.textContent = "No songs found";
+      }
+    } catch (err) {
+      console.error("API Fetch Error:", err);
+      listHeading.textContent = "Search error, try another title";
+    }
+  }
 
   function loadTrack(index) {
     if (!tracks[index]) return;
@@ -60,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     trackTitle.textContent = track.title;
     trackArtist.textContent = track.artist;
-    trackArt.src = track.art || defaultArtwork;
+    trackArt.src = track.art || fallbackArt;
     audio.src = track.src;
 
     renderPlaylist();
@@ -72,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
       playIcon.classList.add('hidden');
       pauseIcon.classList.remove('hidden');
     }).catch(err => {
-      console.warn('Playback waiting for user gesture or loading...', err);
+      console.warn("Click play to allow audio:", err);
     });
   }
 
@@ -112,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   }
 
-  // Audio timeline update
+  // Audio Timeline
   audio.addEventListener('timeupdate', () => {
     if (audio.duration && !isNaN(audio.duration)) {
       const progress = (audio.currentTime / audio.duration) * 100;
@@ -124,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   audio.addEventListener('ended', nextTrack);
 
-  // Seek bar drag/touch
+  // Seek bar
   seekBar.addEventListener('input', () => {
     if (audio.duration && !isNaN(audio.duration)) {
       audio.currentTime = (seekBar.value / 100) * audio.duration;
@@ -141,7 +170,20 @@ document.addEventListener('DOMContentLoaded', () => {
     muteBtn.style.opacity = audio.muted ? '0.4' : '1';
   });
 
-  // 1. Phone Storage se Gaane Add Karna
+  // Search Action
+  function triggerSearch() {
+    const q = searchInput.value.trim();
+    if (q) {
+      searchBollywoodSongs(q);
+    }
+  }
+
+  searchBtn.addEventListener('click', triggerSearch);
+  searchInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') triggerSearch();
+  });
+
+  // Device Songs Support
   fileUpload.addEventListener('change', (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
@@ -150,43 +192,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const fileUrl = URL.createObjectURL(file);
       const cleanTitle = file.name.replace(/\.[^/.]+$/, "");
 
-      tracks.push({
+      tracks.unshift({
         title: cleanTitle,
-        artist: "Phone Storage",
-        art: defaultArtwork,
-        src: fileUrl,
-        source: "Local"
+        artist: "Device Audio",
+        art: fallbackArt,
+        src: fileUrl
       });
     });
 
+    listHeading.textContent = "Device Songs Added";
     renderPlaylist();
-    loadTrack(tracks.length - files.length);
-    playTrack();
-  });
-
-  // 2. Direct Online MP3 Link Add Karna
-  addUrlBtn.addEventListener('click', () => {
-    const url = onlineUrlInput.value.trim();
-    if (!url) return;
-
-    let title = "Online Audio Track";
-    try {
-      const urlObj = new URL(url);
-      const pathname = urlObj.pathname.split('/').pop();
-      if (pathname) title = decodeURIComponent(pathname);
-    } catch (_) {}
-
-    tracks.push({
-      title: title,
-      artist: "Web Audio Stream",
-      art: defaultArtwork,
-      src: url,
-      source: "Online"
-    });
-
-    onlineUrlInput.value = '';
-    renderPlaylist();
-    loadTrack(tracks.length - 1);
+    loadTrack(0);
     playTrack();
   });
 
@@ -199,10 +215,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const li = document.createElement('li');
       li.className = `playlist-item ${idx === currentTrackIndex ? 'active' : ''}`;
       li.innerHTML = `
-        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px;">
-          ${track.title}
-        </span>
-        <span class="track-tag">${track.source || 'Audio'}</span>
+        <img class="item-thumb" src="${track.art || fallbackArt}" alt="thumb">
+        <div class="item-meta">
+          <div class="item-title">${track.title}</div>
+          <div class="item-artist">${track.artist}</div>
+        </div>
       `;
 
       li.addEventListener('click', () => {
@@ -214,12 +231,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Controls Event Listeners
+  // Playback Buttons
   playBtn.addEventListener('click', togglePlay);
   prevBtn.addEventListener('click', prevTrack);
   nextBtn.addEventListener('click', nextTrack);
 
-  // Initialize
-  loadTrack(currentTrackIndex);
   audio.volume = volumeBar.value;
+
+  // Initial trending Bollywood search
+  searchBollywoodSongs("Arijit Singh Hits");
 });
