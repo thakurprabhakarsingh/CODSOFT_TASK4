@@ -1,6 +1,29 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // Global Audio instance
   const audio = new Audio();
-  audio.preload = 'metadata';
+  audio.preload = 'auto';
+  audio.crossOrigin = 'anonymous';
+
+  // Background Keep-Alive Audio Context (browser sleep prevention)
+  let audioCtx = null;
+  function initAudioContext() {
+    if (!audioCtx) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) {
+        audioCtx = new AudioContext();
+        // Silent oscillator background thread ko active rakhta hai
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        gain.gain.value = 0.001; // Inaudible
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+      }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  }
 
   const trackArt = document.getElementById('track-art');
   const trackTitle = document.getElementById('track-title');
@@ -37,13 +60,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return txt.value;
   }
 
-  // Phone Notification & Lock-Screen Media Controls setup
+  // Media Session for Lock screen & background controls
   function updateMediaSession(track) {
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: track.title,
         artist: track.artist,
-        album: 'Aura Music',
+        album: 'Aura Music Player',
         artwork: [
           { src: track.art || fallbackArt, sizes: '512x512', type: 'image/jpeg' }
         ]
@@ -61,7 +84,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Fetch Bollywood songs with real audio stream URL
+  // Tab switch hone par browser ke pause signal ko bypass karna
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && isPlaying) {
+      // Force keep-alive
+      audio.play().catch(() => {});
+    }
+  });
+
+  // Bollywood Music Search (Direct Audio Streams)
   async function searchBollywoodSongs(query) {
     listHeading.textContent = `Searching: ${query}...`;
     try {
@@ -100,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (err) {
       console.error("Fetch Error:", err);
-      listHeading.textContent = "Search error, try another title";
+      listHeading.textContent = "Search error, please retry";
     }
   }
 
@@ -119,6 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function playTrack() {
+    initAudioContext();
     isPlaying = true;
     audio.play().then(() => {
       playIcon.classList.add('hidden');
@@ -170,7 +202,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   }
 
-  // Audio timeline update
   audio.addEventListener('timeupdate', () => {
     if (audio.duration && !isNaN(audio.duration)) {
       const progress = (audio.currentTime / audio.duration) * 100;
@@ -182,14 +213,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   audio.addEventListener('ended', nextTrack);
 
-  // Seek bar
   seekBar.addEventListener('input', () => {
     if (audio.duration && !isNaN(audio.duration)) {
       audio.currentTime = (seekBar.value / 100) * audio.duration;
     }
   });
 
-  // Volume
   volumeBar.addEventListener('input', (e) => {
     audio.volume = e.target.value;
   });
@@ -199,7 +228,6 @@ document.addEventListener('DOMContentLoaded', () => {
     muteBtn.style.opacity = audio.muted ? '0.4' : '1';
   });
 
-  // Search
   function triggerSearch() {
     const q = searchInput.value.trim();
     if (q) {
@@ -212,7 +240,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') triggerSearch();
   });
 
-  // Local Device Upload
   fileUpload.addEventListener('change', (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
