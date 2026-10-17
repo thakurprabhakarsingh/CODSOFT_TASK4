@@ -29,7 +29,7 @@ body {
 .player-card {
   background: var(--bg-card);
   width: 100%;
-  max-width: 380px;
+  max-width: 390px;
   border-radius: 20px;
   border: 1px solid var(--border);
   box-shadow: var(--shadow-card);
@@ -39,14 +39,13 @@ body {
   align-items: center;
 }
 
-/* Artwork */
 .artwork-wrapper {
   width: 100%;
   aspect-ratio: 1 / 1;
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .artwork-wrapper img {
@@ -55,15 +54,14 @@ body {
   object-fit: cover;
 }
 
-/* Track Metadata */
 .track-details {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
   width: 100%;
 }
 
 .track-details h2 {
-  font-size: 1.25rem;
+  font-size: 1.18rem;
   font-weight: 700;
   letter-spacing: -0.3px;
   white-space: nowrap;
@@ -72,15 +70,14 @@ body {
 }
 
 .track-details p {
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   color: var(--text-muted);
   margin-top: 4px;
 }
 
-/* Seek Bar */
 .progress-container {
   width: 100%;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .progress-container input[type="range"],
@@ -114,14 +111,13 @@ body {
   font-weight: 500;
 }
 
-/* Playback Buttons */
 .controls-row {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 20px;
+  gap: 18px;
   width: 100%;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .ctrl-btn {
@@ -146,22 +142,21 @@ body {
   background: var(--primary);
   color: #fff;
   border-color: var(--primary);
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
 }
 
 .ctrl-btn.play-btn:hover {
   background: var(--primary-hover);
 }
 
-/* Volume */
 .volume-container {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
   padding: 0 8px;
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 
 .vol-icon {
@@ -173,26 +168,102 @@ body {
   align-items: center;
 }
 
+/* Actions Section */
+.actions-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.btn-action {
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.upload-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px;
+  background: #eff6ff;
+  color: var(--primary);
+  border: 1px dashed var(--primary);
+  cursor: pointer;
+}
+
+.upload-btn:hover {
+  background: #dbeafe;
+}
+
+.upload-btn input[type="file"] {
+  display: none;
+}
+
+.online-input-row {
+  display: flex;
+  gap: 6px;
+}
+
+.online-input-row input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.online-input-row input:focus {
+  border-color: var(--primary);
+}
+
+.link-btn {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  background: var(--primary-hover);
+}
+
 /* Playlist */
 .playlist-section {
   width: 100%;
   border-top: 1px solid var(--border);
-  padding-top: 16px;
+  padding-top: 12px;
 }
 
-.playlist-section h3 {
-  font-size: 0.82rem;
+.playlist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.playlist-header h3 {
+  font-size: 0.78rem;
   text-transform: uppercase;
   color: var(--text-muted);
   letter-spacing: 0.5px;
-  margin-bottom: 10px;
+}
+
+#playlist-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .playlist {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   max-height: 140px;
   overflow-y: auto;
 }
@@ -203,7 +274,7 @@ body {
   align-items: center;
   padding: 8px 10px;
   border-radius: 8px;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
@@ -216,6 +287,14 @@ body {
   background: #eff6ff;
   color: var(--primary);
   font-weight: 600;
+}
+
+.track-tag {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #e2e8f0;
+  color: var(--text-muted);
 }
 
 .hidden {

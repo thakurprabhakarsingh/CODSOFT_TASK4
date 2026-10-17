@@ -17,27 +17,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const volumeBar = document.getElementById('volume-bar');
   const muteBtn = document.getElementById('mute-btn');
+  const fileUpload = document.getElementById('file-upload');
+  const onlineUrlInput = document.getElementById('online-url-input');
+  const addUrlBtn = document.getElementById('add-url-btn');
   const playlistEl = document.getElementById('playlist');
+  const playlistCountEl = document.getElementById('playlist-count');
 
-  // Tracklist array
-  const tracks = [
+  const defaultArtwork = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=80";
+
+  // Pre-configured online tracks (Direct high-quality CDN audio streams)
+  let tracks = [
     {
-      title: "Lofi Study Session",
-      artist: "FASSounds",
+      title: "Lofi Dream Session",
+      artist: "Online Stream",
       art: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=500&auto=format&fit=crop&q=80",
-      src: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3"
+      src: "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Keshco/Suspended_Animation/Keshco_-_01_-_Flute_Song.mp3",
+      source: "Online"
     },
     {
-      title: "Chill Gaming Vibes",
-      artist: "Coma-Media",
-      art: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=80",
-      src: "https://cdn.pixabay.com/download/audio/2022/10/14/audio_9939f77c30.mp3?filename=chill-abstract-intention-12099.mp3"
-    },
-    {
-      title: "Acoustic Breeze",
-      artist: "Benjamin Tissot",
+      title: "Morning Sun Acoustic",
+      artist: "Online Stream",
       art: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&auto=format&fit=crop&q=80",
-      src: "https://www.bensound.com/bensound-music/bensound-ukulele.mp3"
+      src: "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/ccCommunity/Kai_Engel/Sollers_Philosophia/Kai_Engel_-_01_-_Damaged_Lough.mp3",
+      source: "Online"
+    },
+    {
+      title: "Electronic Synthwave",
+      artist: "Online Stream",
+      art: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=500&auto=format&fit=crop&q=80",
+      src: "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/ccCommunity/Chad_Crouch/Arps/Chad_Crouch_-_Algorithms.mp3",
+      source: "Online"
     }
   ];
 
@@ -45,12 +54,13 @@ document.addEventListener('DOMContentLoaded', () => {
   let isPlaying = false;
 
   function loadTrack(index) {
+    if (!tracks[index]) return;
     currentTrackIndex = index;
     const track = tracks[currentTrackIndex];
 
     trackTitle.textContent = track.title;
     trackArtist.textContent = track.artist;
-    trackArt.src = track.art;
+    trackArt.src = track.art || defaultArtwork;
     audio.src = track.src;
 
     renderPlaylist();
@@ -58,9 +68,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function playTrack() {
     isPlaying = true;
-    audio.play().catch(() => {});
-    playIcon.classList.add('hidden');
-    pauseIcon.classList.remove('hidden');
+    audio.play().then(() => {
+      playIcon.classList.add('hidden');
+      pauseIcon.classList.remove('hidden');
+    }).catch(err => {
+      console.warn('Playback waiting for user gesture or loading...', err);
+    });
   }
 
   function pauseTrack() {
@@ -79,27 +92,29 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function prevTrack() {
+    if (tracks.length === 0) return;
     currentTrackIndex = (currentTrackIndex - 1 + tracks.length) % tracks.length;
     loadTrack(currentTrackIndex);
     playTrack();
   }
 
   function nextTrack() {
+    if (tracks.length === 0) return;
     currentTrackIndex = (currentTrackIndex + 1) % tracks.length;
     loadTrack(currentTrackIndex);
     playTrack();
   }
 
   function formatTime(seconds) {
-    if (isNaN(seconds)) return "0:00";
+    if (isNaN(seconds) || !isFinite(seconds)) return "0:00";
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   }
 
-  // Audio Events
+  // Audio timeline update
   audio.addEventListener('timeupdate', () => {
-    if (audio.duration) {
+    if (audio.duration && !isNaN(audio.duration)) {
       const progress = (audio.currentTime / audio.duration) * 100;
       seekBar.value = progress;
       currentTimeEl.textContent = formatTime(audio.currentTime);
@@ -109,14 +124,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   audio.addEventListener('ended', nextTrack);
 
-  // Seek Bar Change
+  // Seek bar drag/touch
   seekBar.addEventListener('input', () => {
-    if (audio.duration) {
+    if (audio.duration && !isNaN(audio.duration)) {
       audio.currentTime = (seekBar.value / 100) * audio.duration;
     }
   });
 
-  // Volume Bar
+  // Volume
   volumeBar.addEventListener('input', (e) => {
     audio.volume = e.target.value;
   });
@@ -126,27 +141,85 @@ document.addEventListener('DOMContentLoaded', () => {
     muteBtn.style.opacity = audio.muted ? '0.4' : '1';
   });
 
-  // Playlist Rendering
+  // 1. Phone Storage se Gaane Add Karna
+  fileUpload.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+
+    files.forEach(file => {
+      const fileUrl = URL.createObjectURL(file);
+      const cleanTitle = file.name.replace(/\.[^/.]+$/, "");
+
+      tracks.push({
+        title: cleanTitle,
+        artist: "Phone Storage",
+        art: defaultArtwork,
+        src: fileUrl,
+        source: "Local"
+      });
+    });
+
+    renderPlaylist();
+    loadTrack(tracks.length - files.length);
+    playTrack();
+  });
+
+  // 2. Direct Online MP3 Link Add Karna
+  addUrlBtn.addEventListener('click', () => {
+    const url = onlineUrlInput.value.trim();
+    if (!url) return;
+
+    let title = "Online Audio Track";
+    try {
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname.split('/').pop();
+      if (pathname) title = decodeURIComponent(pathname);
+    } catch (_) {}
+
+    tracks.push({
+      title: title,
+      artist: "Web Audio Stream",
+      art: defaultArtwork,
+      src: url,
+      source: "Online"
+    });
+
+    onlineUrlInput.value = '';
+    renderPlaylist();
+    loadTrack(tracks.length - 1);
+    playTrack();
+  });
+
+  // Render Playlist UI
   function renderPlaylist() {
     playlistEl.innerHTML = '';
+    playlistCountEl.textContent = `${tracks.length} songs`;
+
     tracks.forEach((track, idx) => {
       const li = document.createElement('li');
       li.className = `playlist-item ${idx === currentTrackIndex ? 'active' : ''}`;
-      li.innerHTML = `<span>${track.title}</span>`;
+      li.innerHTML = `
+        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px;">
+          ${track.title}
+        </span>
+        <span class="track-tag">${track.source || 'Audio'}</span>
+      `;
+
       li.addEventListener('click', () => {
         loadTrack(idx);
         playTrack();
       });
+
       playlistEl.appendChild(li);
     });
   }
 
-  // Event Listeners
+  // Controls Event Listeners
   playBtn.addEventListener('click', togglePlay);
   prevBtn.addEventListener('click', prevTrack);
   nextBtn.addEventListener('click', nextTrack);
 
-  // Initial Boot
+  // Initialize
   loadTrack(currentTrackIndex);
   audio.volume = volumeBar.value;
 });
