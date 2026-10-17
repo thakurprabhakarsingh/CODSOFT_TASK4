@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const audio = new Audio();
   audio.preload = 'auto';
 
-  // Background AudioContext to prevent tab sleeping
+  // Silent oscillator background thread ko browser throttling se bachata hai
   let audioCtx = null;
   function initAudioContext() {
     if (!audioCtx) {
@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
         audioCtx = new AudioContext();
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        gain.gain.value = 0.0001; // Silent keep-alive
+        gain.gain.value = 0.0001;
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentTrackIndex = 0;
   let isPlaying = false;
 
-  // Background & Lock Screen Media Notification Setup
+  // Background Lock Screen & Notification Bar Control Setup
   function updateMediaSession(track) {
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
@@ -75,14 +75,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Prevent background pause on tab switch
+  // Prevent background pause when tab changes
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && isPlaying) {
       audio.play().catch(() => {});
     }
   });
 
-  // Reliable Apple Music Engine (Zero Downtime & Zero Search Error)
+  // Apple Music Engine (100% stable, zero CORS, HD Posters)
   async function searchBollywoodSongs(query) {
     listHeading.textContent = `Searching: ${query}...`;
     try {
@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
         navigator.mediaSession.playbackState = 'playing';
       }
     }).catch(err => {
-      console.warn("User action required:", err);
+      console.warn("User interaction required:", err);
     });
   }
 
@@ -179,6 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   }
 
+  // Audio timeline update
   audio.addEventListener('timeupdate', () => {
     if (audio.duration && !isNaN(audio.duration)) {
       const progress = (audio.currentTime / audio.duration) * 100;
@@ -190,12 +191,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   audio.addEventListener('ended', nextTrack);
 
+  // Seek bar
   seekBar.addEventListener('input', () => {
     if (audio.duration && !isNaN(audio.duration)) {
       audio.currentTime = (seekBar.value / 100) * audio.duration;
     }
   });
 
+  // Volume
   volumeBar.addEventListener('input', (e) => {
     audio.volume = e.target.value / 100;
   });
@@ -205,6 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
     muteBtn.style.opacity = audio.muted ? '0.4' : '1';
   });
 
+  // Search
   function triggerSearch() {
     const q = searchInput.value.trim();
     if (q) {
@@ -217,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') triggerSearch();
   });
 
-  // Phone local files
+  // Device Audio files
   fileUpload.addEventListener('change', (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
@@ -240,6 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
     playTrack();
   });
 
+  // Render UI Playlist
   function renderPlaylist() {
     playlistEl.innerHTML = '';
     playlistCountEl.textContent = `${tracks.length} songs`;
@@ -270,6 +275,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   audio.volume = volumeBar.value / 100;
 
-  // Initial Bollywood song fetch
+  // Initial song load
   searchBollywoodSongs("Tere bina");
 });
