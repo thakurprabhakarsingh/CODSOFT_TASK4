@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const audio = new Audio();
+  // OFFICIAL GOOGLE CLOUD YOUTUBE API KEY
+  const YOUTUBE_API_KEY = "AIzaSyAcEjWKrSl6UGXsYZVHsGUD4tvDD0LfSss";
 
   const trackArt = document.getElementById('track-art');
   const trackTitle = document.getElementById('track-title');
@@ -26,47 +27,67 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const fallbackArt = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=80";
 
+  let ytPlayer = null;
+  let localAudio = new Audio();
   let tracks = [];
   let currentTrackIndex = 0;
   let isPlaying = false;
+  let timerInterval = null;
 
-  // HTML entity decode helper (e.g. &quot; to ")
   function decodeHTML(str) {
     const txt = document.createElement("textarea");
     txt.innerHTML = str;
     return txt.value;
   }
 
-  // Fetch Bollywood songs from free public API
-  async function searchBollywoodSongs(query) {
+  // YouTube API IFrame Player Initialization
+  window.onYouTubeIframeAPIReady = function() {
+    ytPlayer = new YT.Player('yt-audio-player', {
+      height: '10',
+      width: '10',
+      playerVars: {
+        'playsinline': 1,
+        'controls': 0,
+        'disablekb': 1
+      },
+      events: {
+        'onStateChange': onPlayerStateChange
+      }
+    });
+  };
+
+  function onPlayerStateChange(event) {
+    if (event.data === YT.PlayerState.PLAYING) {
+      isPlaying = true;
+      playIcon.classList.add('hidden');
+      pauseIcon.classList.remove('hidden');
+      startTimer();
+    } else if (event.data === YT.PlayerState.PAUSED) {
+      isPlaying = false;
+      playIcon.classList.remove('hidden');
+      pauseIcon.classList.add('hidden');
+      clearInterval(timerInterval);
+    } else if (event.data === YT.PlayerState.ENDED) {
+      nextTrack();
+    }
+  }
+
+  // Google Cloud YouTube Data API v3 Search
+  async function searchYouTubeTracks(query) {
     listHeading.textContent = `Searching: ${query}...`;
     try {
-      const res = await fetch(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(query)}&limit=15`);
+      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=15&q=${encodeURIComponent(query + ' song')}&key=${YOUTUBE_API_KEY}`;
+      const res = await fetch(url);
       const data = await res.json();
 
-      if (data && data.data && data.data.results && data.data.results.length > 0) {
-        tracks = data.data.results.map(item => {
-          // Best quality download/streaming link
-          const downloadUrl = (item.downloadUrl && item.downloadUrl.length > 0)
-            ? item.downloadUrl[item.downloadUrl.length - 1].url 
-            : '';
-
-          // Best artwork
-          const art = (item.image && item.image.length > 0)
-            ? item.image[item.image.length - 1].url 
-            : fallbackArt;
-
-          const artistName = item.artists && item.artists.primary && item.artists.primary.length > 0
-            ? item.artists.primary.map(a => a.name).join(', ')
-            : 'Bollywood Artist';
-
-          return {
-            title: decodeHTML(item.name || "Unknown Track"),
-            artist: decodeHTML(artistName),
-            art: art,
-            src: downloadUrl
-          };
-        }).filter(t => t.src !== '');
+      if (data && data.items && data.items.length > 0) {
+        tracks = data.items.map(item => ({
+          type: 'youtube',
+          id: item.id.videoId,
+          title: decodeHTML(item.snippet.title),
+          artist: decodeHTML(item.snippet.channelTitle),
+          art: item.snippet.thumbnails.high ? item.snippet.thumbnails.high.url : (item.snippet.thumbnails.medium ? item.snippet.thumbnails.medium.url : fallbackArt)
+        }));
 
         listHeading.textContent = `Results: ${query}`;
         renderPlaylist();
@@ -74,11 +95,11 @@ document.addEventListener('DOMContentLoaded', () => {
           loadTrack(0);
         }
       } else {
-        listHeading.textContent = "No songs found";
+        listHeading.textContent = "No tracks found";
       }
     } catch (err) {
-      console.error("API Fetch Error:", err);
-      listHeading.textContent = "Search error, try another title";
+      console.error("YouTube API Error:", err);
+      listHeading.textContent = "API error, please retry";
     }
   }
 
@@ -90,26 +111,53 @@ document.addEventListener('DOMContentLoaded', () => {
     trackTitle.textContent = track.title;
     trackArtist.textContent = track.artist;
     trackArt.src = track.art || fallbackArt;
-    audio.src = track.src;
+
+    if (track.type === 'youtube') {
+      localAudio.pause();
+      if (ytPlayer && ytPlayer.loadVideoById) {
+        ytPlayer.loadVideoById(track.id);
+      }
+    } else {
+      if (ytPlayer && ytPlayer.pauseVideo) {
+        ytPlayer.pauseVideo();
+      }
+      localAudio.src = track.src;
+    }
 
     renderPlaylist();
   }
 
   function playTrack() {
-    isPlaying = true;
-    audio.play().then(() => {
-      playIcon.classList.add('hidden');
-      pauseIcon.classList.remove('hidden');
-    }).catch(err => {
-      console.warn("Click play to allow audio:", err);
-    });
+    const track = tracks[currentTrackIndex];
+    if (!track) return;
+
+    if (track.type === 'youtube') {
+      if (ytPlayer && ytPlayer.playVideo) {
+        ytPlayer.playVideo();
+      }
+    } else {
+      localAudio.play().then(() => {
+        isPlaying = true;
+        playIcon.classList.add('hidden');
+        pauseIcon.classList.remove('hidden');
+      });
+    }
   }
 
   function pauseTrack() {
-    isPlaying = false;
-    audio.pause();
-    playIcon.classList.remove('hidden');
-    pauseIcon.classList.add('hidden');
+    const track = tracks[currentTrackIndex];
+    if (!track) return;
+
+    if (track.type === 'youtube') {
+      if (ytPlayer && ytPlayer.pauseVideo) {
+        ytPlayer.pauseVideo();
+      }
+    } else {
+      localAudio.pause();
+      isPlaying = false;
+      playIcon.classList.remove('hidden');
+      pauseIcon.classList.add('hidden');
+    }
   }
 
   function togglePlay() {
@@ -141,40 +189,70 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   }
 
-  // Audio Timeline
-  audio.addEventListener('timeupdate', () => {
-    if (audio.duration && !isNaN(audio.duration)) {
-      const progress = (audio.currentTime / audio.duration) * 100;
-      seekBar.value = progress;
-      currentTimeEl.textContent = formatTime(audio.currentTime);
-      totalDurationEl.textContent = formatTime(audio.duration);
+  function startTimer() {
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      const track = tracks[currentTrackIndex];
+      if (track && track.type === 'youtube' && ytPlayer && ytPlayer.getDuration) {
+        const cur = ytPlayer.getCurrentTime();
+        const dur = ytPlayer.getDuration();
+        if (dur > 0) {
+          seekBar.value = (cur / dur) * 100;
+          currentTimeEl.textContent = formatTime(cur);
+          totalDurationEl.textContent = formatTime(dur);
+        }
+      }
+    }, 500);
+  }
+
+  // Local audio timeupdate
+  localAudio.addEventListener('timeupdate', () => {
+    if (localAudio.duration && !isNaN(localAudio.duration)) {
+      seekBar.value = (localAudio.currentTime / localAudio.duration) * 100;
+      currentTimeEl.textContent = formatTime(localAudio.currentTime);
+      totalDurationEl.textContent = formatTime(localAudio.duration);
     }
   });
 
-  audio.addEventListener('ended', nextTrack);
+  localAudio.addEventListener('ended', nextTrack);
 
   // Seek bar
   seekBar.addEventListener('input', () => {
-    if (audio.duration && !isNaN(audio.duration)) {
-      audio.currentTime = (seekBar.value / 100) * audio.duration;
+    const track = tracks[currentTrackIndex];
+    if (track && track.type === 'youtube' && ytPlayer && ytPlayer.getDuration) {
+      const seekTo = (seekBar.value / 100) * ytPlayer.getDuration();
+      ytPlayer.seekTo(seekTo, true);
+    } else if (localAudio.duration) {
+      localAudio.currentTime = (seekBar.value / 100) * localAudio.duration;
     }
   });
 
   // Volume
   volumeBar.addEventListener('input', (e) => {
-    audio.volume = e.target.value;
+    const vol = Number(e.target.value);
+    if (ytPlayer && ytPlayer.setVolume) {
+      ytPlayer.setVolume(vol);
+    }
+    localAudio.volume = vol / 100;
   });
 
   muteBtn.addEventListener('click', () => {
-    audio.muted = !audio.muted;
-    muteBtn.style.opacity = audio.muted ? '0.4' : '1';
+    if (ytPlayer && ytPlayer.isMuted) {
+      if (ytPlayer.isMuted()) {
+        ytPlayer.unMute();
+        muteBtn.style.opacity = '1';
+      } else {
+        ytPlayer.mute();
+        muteBtn.style.opacity = '0.4';
+      }
+    }
   });
 
   // Search Action
   function triggerSearch() {
     const q = searchInput.value.trim();
     if (q) {
-      searchBollywoodSongs(q);
+      searchYouTubeTracks(q);
     }
   }
 
@@ -183,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') triggerSearch();
   });
 
-  // Device Songs Support
+  // Local Device Audio
   fileUpload.addEventListener('change', (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
@@ -193,8 +271,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const cleanTitle = file.name.replace(/\.[^/.]+$/, "");
 
       tracks.unshift({
+        type: 'local',
         title: cleanTitle,
-        artist: "Device Audio",
+        artist: "Phone Audio",
         art: fallbackArt,
         src: fileUrl
       });
@@ -206,7 +285,6 @@ document.addEventListener('DOMContentLoaded', () => {
     playTrack();
   });
 
-  // Render Playlist UI
   function renderPlaylist() {
     playlistEl.innerHTML = '';
     playlistCountEl.textContent = `${tracks.length} songs`;
@@ -231,13 +309,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Playback Buttons
   playBtn.addEventListener('click', togglePlay);
   prevBtn.addEventListener('click', prevTrack);
   nextBtn.addEventListener('click', nextTrack);
 
-  audio.volume = volumeBar.value;
-
-  // Initial trending Bollywood search
-  searchBollywoodSongs("Arijit Singh Hits");
+  // Initial load
+  searchYouTubeTracks("Arijit Singh Hits");
 });

@@ -39,7 +39,14 @@ body {
   align-items: center;
 }
 
-/* Search Bar */
+.hidden-player {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0.01;
+  pointer-events: none;
+}
+
 .search-box {
   display: flex;
   width: 100%;
@@ -78,7 +85,6 @@ body {
   background: var(--primary-hover);
 }
 
-/* Artwork */
 .artwork-wrapper {
   width: 100%;
   aspect-ratio: 1 / 1;
@@ -94,7 +100,6 @@ body {
   object-fit: cover;
 }
 
-/* Track Metadata */
 .track-details {
   text-align: center;
   margin-bottom: 16px;
@@ -119,7 +124,6 @@ body {
   text-overflow: ellipsis;
 }
 
-/* Seek Bar */
 .progress-container {
   width: 100%;
   margin-bottom: 16px;
@@ -156,7 +160,6 @@ body {
   font-weight: 500;
 }
 
-/* Controls */
 .controls-row {
   display: flex;
   align-items: center;
@@ -214,7 +217,6 @@ body {
   align-items: center;
 }
 
-/* Upload Section */
 .upload-section {
   width: 100%;
   margin-bottom: 14px;
@@ -238,7 +240,6 @@ body {
   display: none;
 }
 
-/* Playlist */
 .playlist-section {
   width: 100%;
   border-top: 1px solid var(--border);
