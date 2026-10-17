@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aura - Web Music Player</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <main class="player-card">
+    <!-- Album Artwork -->
+    <div class="artwork-wrapper">
+      <img id="track-art" src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=500&auto=format&fit=crop&q=80" alt="Album Art">
+    </div>
+
+    <!-- Track Metadata -->
+    <div class="track-details">
+      <h2 id="track-title">Lofi Chill Beats</h2>
+      <p id="track-artist">Ghostrifter Official</p>
+    </div>
+
+    <!-- Seek & Timers -->
+    <div class="progress-container">
+      <input type="range" id="seek-bar" min="0" max="100" value="0">
+      <div class="time-stamps">
+        <span id="current-time">0:00</span>
+        <span id="total-duration">0:00</span>
+      </div>
+    </div>
+
+    <!-- Playback Controls -->
+    <div class="controls-row">
+      <button id="prev-btn" class="ctrl-btn" title="Previous Track">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+      </button>
+
+      <button id="play-btn" class="ctrl-btn play-btn" title="Play/Pause">
+        <svg id="play-icon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        <svg id="pause-icon" class="hidden" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+      </button>
+
+      <button id="next-btn" class="ctrl-btn" title="Next Track">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="m6 18 8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+      </button>
+    </div>
+
+    <!-- Volume Bar -->
+    <div class="volume-container">
+      <button id="mute-btn" class="vol-icon" title="Mute/Unmute">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+      </button>
+      <input type="range" id="volume-bar" min="0" max="1" step="0.05" value="0.8">
+    </div>
+
+    <!-- Mini Playlist Drawer -->
+    <div class="playlist-section">
+      <h3>Tracklist</h3>
+      <ul id="playlist" class="playlist">
+        <!-- Rendered dynamically -->
+      </ul>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
