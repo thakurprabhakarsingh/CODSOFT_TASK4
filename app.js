@@ -1,20 +1,17 @@
 document.addEventListener('DOMContentLoaded', () => {
-  // Global Audio instance
   const audio = new Audio();
   audio.preload = 'auto';
-  audio.crossOrigin = 'anonymous';
 
-  // Background Keep-Alive Audio Context (browser sleep prevention)
+  // Background AudioContext to prevent tab sleeping
   let audioCtx = null;
   function initAudioContext() {
     if (!audioCtx) {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (AudioContext) {
         audioCtx = new AudioContext();
-        // Silent oscillator background thread ko active rakhta hai
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        gain.gain.value = 0.001; // Inaudible
+        gain.gain.value = 0.0001; // Silent keep-alive
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
@@ -54,21 +51,15 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentTrackIndex = 0;
   let isPlaying = false;
 
-  function decodeHTML(str) {
-    const txt = document.createElement("textarea");
-    txt.innerHTML = str;
-    return txt.value;
-  }
-
-  // Media Session for Lock screen & background controls
+  // Background & Lock Screen Media Notification Setup
   function updateMediaSession(track) {
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: track.title,
         artist: track.artist,
-        album: 'Aura Music Player',
+        album: 'Bollywood Hits',
         artwork: [
-          { src: track.art || fallbackArt, sizes: '512x512', type: 'image/jpeg' }
+          { src: track.art, sizes: '512x512', type: 'image/jpeg' }
         ]
       });
 
@@ -84,42 +75,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Tab switch hone par browser ke pause signal ko bypass karna
+  // Prevent background pause on tab switch
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && isPlaying) {
-      // Force keep-alive
       audio.play().catch(() => {});
     }
   });
 
-  // Bollywood Music Search (Direct Audio Streams)
+  // Reliable Apple Music Engine (Zero Downtime & Zero Search Error)
   async function searchBollywoodSongs(query) {
     listHeading.textContent = `Searching: ${query}...`;
     try {
-      const res = await fetch(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(query)}&limit=15`);
+      const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=20&country=IN`;
+      const res = await fetch(url);
       const data = await res.json();
 
-      if (data && data.data && data.data.results && data.data.results.length > 0) {
-        tracks = data.data.results.map(item => {
-          const downloadUrl = (item.downloadUrl && item.downloadUrl.length > 0)
-            ? item.downloadUrl[item.downloadUrl.length - 1].url 
-            : '';
-
-          const art = (item.image && item.image.length > 0)
-            ? item.image[item.image.length - 1].url 
-            : fallbackArt;
-
-          const artistName = item.artists && item.artists.primary && item.artists.primary.length > 0
-            ? item.artists.primary.map(a => a.name).join(', ')
-            : 'Bollywood Artist';
-
-          return {
-            title: decodeHTML(item.name || "Unknown Track"),
-            artist: decodeHTML(artistName),
-            art: art,
-            src: downloadUrl
-          };
-        }).filter(t => t.src !== '');
+      if (data && data.results && data.results.length > 0) {
+        tracks = data.results.map(item => ({
+          title: item.trackName || "Bollywood Hit",
+          artist: item.artistName || "Artist",
+          art: item.artworkUrl100 ? item.artworkUrl100.replace('100x100bb', '600x600bb') : fallbackArt,
+          src: item.previewUrl
+        })).filter(t => Boolean(t.src));
 
         listHeading.textContent = `Results: ${query}`;
         renderPlaylist();
@@ -127,11 +104,11 @@ document.addEventListener('DOMContentLoaded', () => {
           loadTrack(0);
         }
       } else {
-        listHeading.textContent = "No songs found";
+        listHeading.textContent = "No songs found, try another title";
       }
     } catch (err) {
-      console.error("Fetch Error:", err);
-      listHeading.textContent = "Search error, please retry";
+      console.error("Music Fetch Error:", err);
+      listHeading.textContent = "Network error, please retry";
     }
   }
 
@@ -159,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
         navigator.mediaSession.playbackState = 'playing';
       }
     }).catch(err => {
-      console.warn("User action needed:", err);
+      console.warn("User action required:", err);
     });
   }
 
@@ -220,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   volumeBar.addEventListener('input', (e) => {
-    audio.volume = e.target.value;
+    audio.volume = e.target.value / 100;
   });
 
   muteBtn.addEventListener('click', () => {
@@ -240,6 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') triggerSearch();
   });
 
+  // Phone local files
   fileUpload.addEventListener('change', (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
@@ -290,8 +268,8 @@ document.addEventListener('DOMContentLoaded', () => {
   prevBtn.addEventListener('click', prevTrack);
   nextBtn.addEventListener('click', nextTrack);
 
-  audio.volume = volumeBar.value;
+  audio.volume = volumeBar.value / 100;
 
-  // Initial Bollywood hits search
-  searchBollywoodSongs("Arijit Singh Hits");
+  // Initial Bollywood song fetch
+  searchBollywoodSongs("Tere bina");
 });
