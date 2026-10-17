@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
-  // OFFICIAL GOOGLE CLOUD YOUTUBE API KEY
-  const YOUTUBE_API_KEY = "AIzaSyAcEjWKrSl6UGXsYZVHsGUD4tvDD0LfSss";
+  const audio = new Audio();
+  audio.preload = 'metadata';
 
   const trackArt = document.getElementById('track-art');
   const trackTitle = document.getElementById('track-title');
@@ -27,12 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const fallbackArt = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=80";
 
-  let ytPlayer = null;
-  let localAudio = new Audio();
   let tracks = [];
   let currentTrackIndex = 0;
   let isPlaying = false;
-  let timerInterval = null;
 
   function decodeHTML(str) {
     const txt = document.createElement("textarea");
@@ -40,54 +37,58 @@ document.addEventListener('DOMContentLoaded', () => {
     return txt.value;
   }
 
-  // YouTube API IFrame Player Initialization
-  window.onYouTubeIframeAPIReady = function() {
-    ytPlayer = new YT.Player('yt-audio-player', {
-      height: '10',
-      width: '10',
-      playerVars: {
-        'playsinline': 1,
-        'controls': 0,
-        'disablekb': 1
-      },
-      events: {
-        'onStateChange': onPlayerStateChange
-      }
-    });
-  };
+  // Phone Notification & Lock-Screen Media Controls setup
+  function updateMediaSession(track) {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.title,
+        artist: track.artist,
+        album: 'Aura Music',
+        artwork: [
+          { src: track.art || fallbackArt, sizes: '512x512', type: 'image/jpeg' }
+        ]
+      });
 
-  function onPlayerStateChange(event) {
-    if (event.data === YT.PlayerState.PLAYING) {
-      isPlaying = true;
-      playIcon.classList.add('hidden');
-      pauseIcon.classList.remove('hidden');
-      startTimer();
-    } else if (event.data === YT.PlayerState.PAUSED) {
-      isPlaying = false;
-      playIcon.classList.remove('hidden');
-      pauseIcon.classList.add('hidden');
-      clearInterval(timerInterval);
-    } else if (event.data === YT.PlayerState.ENDED) {
-      nextTrack();
+      navigator.mediaSession.setActionHandler('play', playTrack);
+      navigator.mediaSession.setActionHandler('pause', pauseTrack);
+      navigator.mediaSession.setActionHandler('previoustrack', prevTrack);
+      navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime && audio.duration) {
+          audio.currentTime = details.seekTime;
+        }
+      });
     }
   }
 
-  // Google Cloud YouTube Data API v3 Search
-  async function searchYouTubeTracks(query) {
+  // Fetch Bollywood songs with real audio stream URL
+  async function searchBollywoodSongs(query) {
     listHeading.textContent = `Searching: ${query}...`;
     try {
-      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=15&q=${encodeURIComponent(query + ' song')}&key=${YOUTUBE_API_KEY}`;
-      const res = await fetch(url);
+      const res = await fetch(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(query)}&limit=15`);
       const data = await res.json();
 
-      if (data && data.items && data.items.length > 0) {
-        tracks = data.items.map(item => ({
-          type: 'youtube',
-          id: item.id.videoId,
-          title: decodeHTML(item.snippet.title),
-          artist: decodeHTML(item.snippet.channelTitle),
-          art: item.snippet.thumbnails.high ? item.snippet.thumbnails.high.url : (item.snippet.thumbnails.medium ? item.snippet.thumbnails.medium.url : fallbackArt)
-        }));
+      if (data && data.data && data.data.results && data.data.results.length > 0) {
+        tracks = data.data.results.map(item => {
+          const downloadUrl = (item.downloadUrl && item.downloadUrl.length > 0)
+            ? item.downloadUrl[item.downloadUrl.length - 1].url 
+            : '';
+
+          const art = (item.image && item.image.length > 0)
+            ? item.image[item.image.length - 1].url 
+            : fallbackArt;
+
+          const artistName = item.artists && item.artists.primary && item.artists.primary.length > 0
+            ? item.artists.primary.map(a => a.name).join(', ')
+            : 'Bollywood Artist';
+
+          return {
+            title: decodeHTML(item.name || "Unknown Track"),
+            artist: decodeHTML(artistName),
+            art: art,
+            src: downloadUrl
+          };
+        }).filter(t => t.src !== '');
 
         listHeading.textContent = `Results: ${query}`;
         renderPlaylist();
@@ -95,11 +96,11 @@ document.addEventListener('DOMContentLoaded', () => {
           loadTrack(0);
         }
       } else {
-        listHeading.textContent = "No tracks found";
+        listHeading.textContent = "No songs found";
       }
     } catch (err) {
-      console.error("YouTube API Error:", err);
-      listHeading.textContent = "API error, please retry";
+      console.error("Fetch Error:", err);
+      listHeading.textContent = "Search error, try another title";
     }
   }
 
@@ -111,52 +112,32 @@ document.addEventListener('DOMContentLoaded', () => {
     trackTitle.textContent = track.title;
     trackArtist.textContent = track.artist;
     trackArt.src = track.art || fallbackArt;
+    audio.src = track.src;
 
-    if (track.type === 'youtube') {
-      localAudio.pause();
-      if (ytPlayer && ytPlayer.loadVideoById) {
-        ytPlayer.loadVideoById(track.id);
-      }
-    } else {
-      if (ytPlayer && ytPlayer.pauseVideo) {
-        ytPlayer.pauseVideo();
-      }
-      localAudio.src = track.src;
-    }
-
+    updateMediaSession(track);
     renderPlaylist();
   }
 
   function playTrack() {
-    const track = tracks[currentTrackIndex];
-    if (!track) return;
-
-    if (track.type === 'youtube') {
-      if (ytPlayer && ytPlayer.playVideo) {
-        ytPlayer.playVideo();
+    isPlaying = true;
+    audio.play().then(() => {
+      playIcon.classList.add('hidden');
+      pauseIcon.classList.remove('hidden');
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'playing';
       }
-    } else {
-      localAudio.play().then(() => {
-        isPlaying = true;
-        playIcon.classList.add('hidden');
-        pauseIcon.classList.remove('hidden');
-      });
-    }
+    }).catch(err => {
+      console.warn("User action needed:", err);
+    });
   }
 
   function pauseTrack() {
-    const track = tracks[currentTrackIndex];
-    if (!track) return;
-
-    if (track.type === 'youtube') {
-      if (ytPlayer && ytPlayer.pauseVideo) {
-        ytPlayer.pauseVideo();
-      }
-    } else {
-      localAudio.pause();
-      isPlaying = false;
-      playIcon.classList.remove('hidden');
-      pauseIcon.classList.add('hidden');
+    isPlaying = false;
+    audio.pause();
+    playIcon.classList.remove('hidden');
+    pauseIcon.classList.add('hidden');
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = 'paused';
     }
   }
 
@@ -189,70 +170,40 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   }
 
-  function startTimer() {
-    clearInterval(timerInterval);
-    timerInterval = setInterval(() => {
-      const track = tracks[currentTrackIndex];
-      if (track && track.type === 'youtube' && ytPlayer && ytPlayer.getDuration) {
-        const cur = ytPlayer.getCurrentTime();
-        const dur = ytPlayer.getDuration();
-        if (dur > 0) {
-          seekBar.value = (cur / dur) * 100;
-          currentTimeEl.textContent = formatTime(cur);
-          totalDurationEl.textContent = formatTime(dur);
-        }
-      }
-    }, 500);
-  }
-
-  // Local audio timeupdate
-  localAudio.addEventListener('timeupdate', () => {
-    if (localAudio.duration && !isNaN(localAudio.duration)) {
-      seekBar.value = (localAudio.currentTime / localAudio.duration) * 100;
-      currentTimeEl.textContent = formatTime(localAudio.currentTime);
-      totalDurationEl.textContent = formatTime(localAudio.duration);
+  // Audio timeline update
+  audio.addEventListener('timeupdate', () => {
+    if (audio.duration && !isNaN(audio.duration)) {
+      const progress = (audio.currentTime / audio.duration) * 100;
+      seekBar.value = progress;
+      currentTimeEl.textContent = formatTime(audio.currentTime);
+      totalDurationEl.textContent = formatTime(audio.duration);
     }
   });
 
-  localAudio.addEventListener('ended', nextTrack);
+  audio.addEventListener('ended', nextTrack);
 
   // Seek bar
   seekBar.addEventListener('input', () => {
-    const track = tracks[currentTrackIndex];
-    if (track && track.type === 'youtube' && ytPlayer && ytPlayer.getDuration) {
-      const seekTo = (seekBar.value / 100) * ytPlayer.getDuration();
-      ytPlayer.seekTo(seekTo, true);
-    } else if (localAudio.duration) {
-      localAudio.currentTime = (seekBar.value / 100) * localAudio.duration;
+    if (audio.duration && !isNaN(audio.duration)) {
+      audio.currentTime = (seekBar.value / 100) * audio.duration;
     }
   });
 
   // Volume
   volumeBar.addEventListener('input', (e) => {
-    const vol = Number(e.target.value);
-    if (ytPlayer && ytPlayer.setVolume) {
-      ytPlayer.setVolume(vol);
-    }
-    localAudio.volume = vol / 100;
+    audio.volume = e.target.value;
   });
 
   muteBtn.addEventListener('click', () => {
-    if (ytPlayer && ytPlayer.isMuted) {
-      if (ytPlayer.isMuted()) {
-        ytPlayer.unMute();
-        muteBtn.style.opacity = '1';
-      } else {
-        ytPlayer.mute();
-        muteBtn.style.opacity = '0.4';
-      }
-    }
+    audio.muted = !audio.muted;
+    muteBtn.style.opacity = audio.muted ? '0.4' : '1';
   });
 
-  // Search Action
+  // Search
   function triggerSearch() {
     const q = searchInput.value.trim();
     if (q) {
-      searchYouTubeTracks(q);
+      searchBollywoodSongs(q);
     }
   }
 
@@ -261,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') triggerSearch();
   });
 
-  // Local Device Audio
+  // Local Device Upload
   fileUpload.addEventListener('change', (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
@@ -271,9 +222,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const cleanTitle = file.name.replace(/\.[^/.]+$/, "");
 
       tracks.unshift({
-        type: 'local',
         title: cleanTitle,
-        artist: "Phone Audio",
+        artist: "Device Storage",
         art: fallbackArt,
         src: fileUrl
       });
@@ -313,6 +263,8 @@ document.addEventListener('DOMContentLoaded', () => {
   prevBtn.addEventListener('click', prevTrack);
   nextBtn.addEventListener('click', nextTrack);
 
-  // Initial load
-  searchYouTubeTracks("Arijit Singh Hits");
+  audio.volume = volumeBar.value;
+
+  // Initial Bollywood hits search
+  searchBollywoodSongs("Arijit Singh Hits");
 });
